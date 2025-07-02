@@ -1,0 +1,66 @@
+import streamlit as st
+import pandas as pd
+import joblib
+
+# Load datasets
+crop_data_path = 'C:/Users/lokes/DS Project/capped_crop_recommendation.csv'
+quarterly_rainfall_path = 'C:/Users/lokes/DS Project/quarterly_rainfall_dataset.csv'
+
+quarterly_rainfall = pd.read_csv(quarterly_rainfall_path)
+
+# Load the trained Random Forest model
+model = joblib.load('crop_recommendation_rf.pkl')
+
+# Month-to-quarter mapping
+month_to_quarter = {
+    'January': 'Jan-Feb', 'February': 'Jan-Feb',
+    'March': 'Mar-May', 'April': 'Mar-May', 'May': 'Mar-May',
+    'June': 'Jun-Sep', 'July': 'Jun-Sep', 'August': 'Jun-Sep', 'September': 'Jun-Sep',
+    'October': 'Oct-Dec', 'November': 'Oct-Dec', 'December': 'Oct-Dec'
+}
+
+# Streamlit app
+st.title("Crop Recommendation Using Rainfall Analysis 🌱")
+st.write("Enter the environmental parameters and district details to get crop recommendations.")
+
+# User inputs
+district_name = st.text_input("Enter District Name").strip().upper()
+month = st.selectbox("Select Month", list(month_to_quarter.keys()))
+
+user_n = st.number_input("Enter N value", min_value=0.0, max_value=300.0, step=0.1)
+user_p = st.number_input("Enter P value", min_value=0.0, max_value=300.0, step=0.1)
+user_k = st.number_input("Enter K value", min_value=0.0, max_value=300.0, step=0.1)
+user_temperature = st.number_input("Enter temperature (°C)", min_value=0.0, max_value=50.0, step=0.1)
+user_humidity = st.number_input("Enter humidity (%)", min_value=0.0, max_value=100.0, step=0.1)
+user_ph = st.number_input("Enter pH value", min_value=0.0, max_value=14.0, step=0.1)
+
+if st.button("Recommend Crop"):
+    if not district_name or not month:
+        st.error("Please provide a valid district name and select a month.")
+    else:
+        quarter = month_to_quarter[month]
+
+        # Step 1: Find the rainfall value for the given district and quarter
+        district_row = quarterly_rainfall[quarterly_rainfall['DISTRICT'].str.upper() == district_name]
+        
+        if district_row.empty:
+            st.error(f"No data found for the district '{district_name}'. Please check the district name and try again.")
+        else:
+            rainfall = district_row.iloc[0][quarter]
+
+            # Step 2: Prepare input data for prediction
+            input_data = pd.DataFrame({
+                'N': [user_n],
+                'P': [user_p],
+                'K': [user_k],
+                'temperature': [user_temperature],
+                'humidity': [user_humidity],
+                'ph': [user_ph],
+                'rainfall': [rainfall]
+            })
+
+            # Step 3: Predict using the Random Forest model
+            prediction = model.predict(input_data)
+
+            # Step 4: Display the recommended crop
+            st.success(f"The recommended crop for '{district_name}' in '{month}' is: {prediction[0]}")
